@@ -25,12 +25,43 @@ export default function TodoForm({
   const [dueDate, setDueDate] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const scheduleNotification = (title: string, dueDate: string) => {
+    const dueDateTime = new Date(dueDate).getTime();
+    const currentTime = Date.now();
+    const delay = dueDateTime - currentTime;
+  
+    if (delay > 0 && Notification.permission === "granted") {
+      const intervals = [
+        { time: 10 * 60 * 1000, message: "10 minutes left for the task" },
+        { time: 5 * 60 * 1000, message: "5 minutes left for the task" },
+        { time: 0, message: "It's time for the task" },
+      ];
+  
+      intervals.forEach(({ time, message }) => {
+        if (delay > time) {
+          setTimeout(() => {
+            new Notification("Task Reminder", {
+              body: `${message}: ${title}`,
+              icon: "/src/assets/media/icon.webp",
+            });
+            const audio = new Audio("/src/assets/media/notification.wav");
+            audio.play();
+          }, delay - time);
+        }
+      });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     setTimeout(() => {
-      onSubmit({ title, description, priority, dueDate });
+      const todo = { title, description, priority, dueDate };
+      onSubmit(todo);
+
+      scheduleNotification(title, dueDate);
+
       setLoading(false);
       setTitle("");
       setDescription("");

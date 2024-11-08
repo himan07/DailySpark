@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Clock } from 'lucide-react';
 import TodoForm from './components/TodoForm';
 import TodoList from './components/TodoList';

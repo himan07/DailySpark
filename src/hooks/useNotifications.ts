@@ -1,7 +1,8 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import { Todo } from '../types';
 
 export function useNotifications(todos: Todo[]) {
+  const [isPermissionGranted, setIsPermissionGranted] = useState(Notification.permission === 'granted');
   const sentNotifications = useRef<Set<string>>(new Set());
   const audioContextRef = useRef<AudioContext | null>(null);
 
@@ -21,23 +22,20 @@ export function useNotifications(todos: Todo[]) {
       return false;
     }
 
-    const handleClick = async () => {
-      try {
-        initAudioContext();
-        const result = await Notification.requestPermission();
-        document.removeEventListener('click', handleClick);
-        return result === 'granted';
-      } catch (error) {
-        console.error('Error requesting notification permission:', error);
-        return false;
-      }
-    };
-
-    if (Notification.permission !== 'granted') {
-      document.addEventListener('click', handleClick, { once: true });
+    if (Notification.permission === 'granted') {
+      setIsPermissionGranted(true);
+      return true;
     }
 
-    return Notification.permission === 'granted';
+    try {
+      initAudioContext();
+      const result = await Notification.requestPermission();
+      setIsPermissionGranted(result === 'granted');
+      return result === 'granted';
+    } catch (error) {
+      console.error('Error requesting notification permission:', error);
+      return false;
+    }
   }, [initAudioContext]);
 
   const playNotificationSound = useCallback(() => {
@@ -73,23 +71,15 @@ export function useNotifications(todos: Todo[]) {
   const showNotification = useCallback(async (todo: Todo, minutesUntilDue: number) => {
     const notificationId = `${todo.id}-${minutesUntilDue}`;
     
-    if (sentNotifications.current.has(notificationId)) {
-      return;
+    if (sentNotifications.current.has(notificationId)) return;
+
+    if (!isPermissionGranted) {
+      const permissionGranted = await requestNotificationPermission();
+      if (!permissionGranted) return;
     }
 
     try {
-      if (Notification.permission !== 'granted') {
-        await requestNotificationPermission();
-        if (Notification.permission !== 'granted') return;
-      }
-
-      if (window.navigator.userAgent.includes('Safari') && 
-          !window.navigator.userAgent.includes('Chrome')) {
-        await initAudioContext()?.resume();
-      }
-
       playNotificationSound();
-
       const options: NotificationOptions = {
         body: `Task "${todo.title}" is due in ${minutesUntilDue} minutes!${
           minutesUntilDue <= 5 ? ' ⚠️ Urgent!' : ''
@@ -118,11 +108,11 @@ export function useNotifications(todos: Todo[]) {
       console.error('Error showing notification:', error);
       alert(`Todo Reminder: Task "${todo.title}" is due in ${minutesUntilDue} minutes!`);
     }
-  }, [playNotificationSound, requestNotificationPermission, initAudioContext]);
+  }, [playNotificationSound, requestNotificationPermission, isPermissionGranted]);
 
   useEffect(() => {
     requestNotificationPermission();
-    
+
     return () => {
       if (audioContextRef.current) {
         audioContextRef.current.close();
@@ -152,12 +142,15 @@ export function useNotifications(todos: Todo[]) {
 
     checkReminders();
     const interval = setInterval(checkReminders, 15000);
-    
     return () => clearInterval(interval);
   }, [todos, showNotification]);
 
   return {
     isSupported: 'Notification' in window,
-    permission: Notification.permission
+    permission: Notification.permission,
+    isPermissionGranted,
   };
 }
+
+
+
