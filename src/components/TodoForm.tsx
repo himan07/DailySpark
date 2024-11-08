@@ -44,7 +44,7 @@ export default function TodoForm({
               body: `${message}: ${title}`,
               icon: "/src/assets/media/icon.webp",
             });
-            const audio = new Audio("/src/assets/media/notification.wav");
+            const audio = new Audio("/notification.wav");
             audio.play();
           }, delay - time);
         }
