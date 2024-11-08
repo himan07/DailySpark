@@ -1,5 +1,5 @@
-import { Check } from 'lucide-react';
-import { Todo } from '../types';
+import { Check } from "lucide-react";
+import { Todo } from "../types";
 
 interface TodoListProps {
   todos: Todo[];
@@ -7,15 +7,19 @@ interface TodoListProps {
   onDelete: (id: string) => void;
 }
 
-export default function TodoList({ todos, onToggleComplete, onDelete }: TodoListProps) {
+export default function TodoList({
+  todos,
+  onToggleComplete,
+  onDelete,
+}: TodoListProps) {
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high':
-        return 'text-red-600 bg-red-100';
-      case 'medium':
-        return 'text-yellow-600 bg-yellow-100';
+      case "high":
+        return "text-red-600 bg-red-100";
+      case "medium":
+        return "text-yellow-600 bg-yellow-100";
       default:
-        return 'text-green-600 bg-green-100';
+        return "text-green-600 bg-green-100";
     }
   };
 
@@ -44,21 +48,29 @@ export default function TodoList({ todos, onToggleComplete, onDelete }: TodoList
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {todos.map((todo) => (
-              <tr key={todo.id} className={todo.completed ? 'bg-gray-50' : ''}>
+              <tr key={todo.id} className={todo.completed ? "bg-gray-50" : ""}>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <button
                     onClick={() => onToggleComplete(todo.id)}
                     className={`p-1 rounded-full ${
-                      todo.completed ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'
+                      todo.completed
+                        ? "bg-green-100 text-green-600"
+                        : "bg-gray-100 text-gray-400"
                     }`}
                   >
                     <Check size={16} />
                   </button>
                 </td>
                 <td className="px-6 py-4">
-                  <div className={`${todo.completed ? 'line-through text-gray-400' : ''}`}>
+                  <div
+                    className={`${
+                      todo.completed ? "line-through text-gray-400" : ""
+                    }`}
+                  >
                     <div className="font-medium">{todo.title}</div>
-                    <div className="text-sm text-gray-500">{todo.description}</div>
+                    <div className="text-sm text-gray-500">
+                      {todo.description}
+                    </div>
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">

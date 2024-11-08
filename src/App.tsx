@@ -17,7 +17,6 @@ function App() {
     localStorage.setItem('todos', JSON.stringify(todos));
   }, [todos]);
 
-  // Handle new todo creation
   const handleCreateTodo = ({
     title,
     description,
@@ -40,7 +39,6 @@ function App() {
     setTodos((prevTodos) => [...prevTodos, newTodo]);
   };
 
-  // Handle toggling completion status
   const handleToggleComplete = (id: string) => {
     setTodos((prevTodos) =>
       prevTodos.map((todo) =>
@@ -49,7 +47,6 @@ function App() {
     );
   };
 
-  // Handle deletion of a todo
   const handleDelete = (id: string) => {
     setTodos((prevTodos) => prevTodos.filter((todo) => todo.id !== id));
   };

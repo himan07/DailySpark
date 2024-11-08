@@ -1,7 +1,9 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { Todo } from '../types';
 
 export function useNotifications(todos: Todo[]) {
+  const sentNotifications = useRef<Set<string>>(new Set());
+
   const requestNotificationPermission = useCallback(async () => {
     try {
       if (!('Notification' in window)) {
@@ -9,78 +11,97 @@ export function useNotifications(todos: Todo[]) {
         return false;
       }
 
-      // Handle Safari's different permission model
-      if (Notification.permission === 'default') {
-        const permission = await Notification.requestPermission();
-        return permission === 'granted';
-      }
-
-      return Notification.permission === 'granted';
+      const permission = await Notification.requestPermission();
+      return permission === 'granted';
     } catch (error) {
       console.error('Error requesting notification permission:', error);
       return false;
     }
   }, []);
 
-  const showNotification = useCallback((title: string, body: string) => {
+  const playNotificationSound = useCallback(() => {
     try {
-      // Create audio context for notification sound
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContext) return;
+
+      const audioContext = new AudioContext();
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
-      
+
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
-      
-      // Configure sound
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(440, audioContext.currentTime); // A4 note
-      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime); // Lower volume
-      
-      // Play sound briefly
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.1);
 
-      // Show notification
-      const notification = new Notification(title, {
-        body,
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(660, audioContext.currentTime);
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.01);
+      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.2);
+
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.2);
+
+      setTimeout(() => {
+        audioContext.close();
+      }, 1000);
+    } catch (error) {
+      console.error('Error playing notification sound:', error);
+    }
+  }, []);
+
+  const showNotification = useCallback((todo: Todo, minutesUntilDue: number) => {
+    const notificationId = `${todo.id}-${minutesUntilDue}`;
+    
+    if (sentNotifications.current.has(notificationId)) {
+      return;
+    }
+
+    try {
+      playNotificationSound();
+
+      const title = 'Todo Reminder';
+      const options: NotificationOptions = {
+        body: `Task "${todo.title}" is due in ${minutesUntilDue} minutes!${
+          minutesUntilDue <= 5 ? ' ⚠️ Urgent!' : ''
+        }`,
         icon: '/notification-icon.png',
         badge: '/notification-icon.png',
-        // renotify: true,
-        tag: 'todo-reminder',
+        tag: `todo-${todo.id}`,
         requireInteraction: true,
-        silent: true // We're handling the sound manually
-      });
+        silent: true
+      };
+      
+      const notification = new Notification(title, options);
 
-      // Handle notification interaction
       notification.onclick = () => {
         window.focus();
         notification.close();
       };
 
-      // Fallback for systems where notifications might fail
-      if (!notification) {
-        console.log('Notification failed, using alert as fallback');
-        alert(`${title}\n${body}`);
-      }
+      sentNotifications.current.add(notificationId);
 
-      // Cleanup: Close the oscillator and audio context after sound completion
-      oscillator.onended = () => {
-        audioContext.close();
-      };
+      setTimeout(() => {
+        sentNotifications.current.delete(notificationId);
+      }, 60000);
+
+      if (!notification) {
+        throw new Error('Failed to create notification');
+      }
     } catch (error) {
       console.error('Error showing notification:', error);
-      // Fallback to alert if notification fails
-      alert(`${title}\n${body}`);
+      alert(`Todo Reminder: Task "${todo.title}" is due in ${minutesUntilDue} minutes!`);
     }
-  }, []);
+  }, [playNotificationSound]);
 
-  // Request permission when component mounts
   useEffect(() => {
-    requestNotificationPermission();
+    const initializeNotifications = async () => {
+      if (Notification.permission === 'default') {
+        await requestNotificationPermission();
+      }
+    };
+
+    initializeNotifications();
   }, [requestNotificationPermission]);
 
-  // Check for upcoming todos
   useEffect(() => {
     const checkReminders = () => {
       const now = new Date();
@@ -92,26 +113,20 @@ export function useNotifications(todos: Todo[]) {
         const timeUntilDue = dueDate.getTime() - now.getTime();
         const minutesUntilDue = Math.round(timeUntilDue / 60000);
 
-        // Notify at different intervals: 30 mins, 15 mins, 5 mins
         const notificationIntervals = [30, 15, 5];
         
         if (timeUntilDue > 0 && notificationIntervals.includes(minutesUntilDue)) {
-          const title = 'Todo Reminder';
-          const body = `Task "${todo.title}" is due in ${minutesUntilDue} minutes!${
-            minutesUntilDue <= 5 ? ' ⚠️ Urgent!' : ''
-          }`;
-
-          showNotification(title, body);
+          showNotification(todo, minutesUntilDue);
         }
       });
     };
 
-    // Check more frequently (every 30 seconds) for more accurate notifications
-    const interval = setInterval(checkReminders, 30000);
+    checkReminders();
+
+    const interval = setInterval(checkReminders, 15000);
     return () => clearInterval(interval);
   }, [todos, showNotification]);
 
-  // Return permission status for UI feedback if needed
   return {
     isSupported: 'Notification' in window,
     permission: Notification.permission
