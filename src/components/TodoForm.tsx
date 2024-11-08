@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Clock, AlertCircle, Bell } from "lucide-react";
+import { Bell } from "lucide-react";
 import { Priority } from "../types";
 
 interface TodoFormProps {
@@ -32,7 +32,6 @@ export default function TodoForm({
     setTimeout(() => {
       onSubmit({ title, description, priority, dueDate });
       setLoading(false);
-
       setTitle("");
       setDescription("");
       setPriority("medium");
