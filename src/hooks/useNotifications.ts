@@ -3,28 +3,52 @@ import { Todo } from '../types';
 
 export function useNotifications(todos: Todo[]) {
   const sentNotifications = useRef<Set<string>>(new Set());
+  const audioContextRef = useRef<AudioContext | null>(null);
 
-  const requestNotificationPermission = useCallback(async () => {
-    try {
-      if (!('Notification' in window)) {
-        console.log('This browser does not support desktop notifications');
-        return false;
+  const initAudioContext = useCallback(() => {
+    if (!audioContextRef.current) {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioContext) {
+        audioContextRef.current = new AudioContext();
       }
-
-      const permission = await Notification.requestPermission();
-      return permission === 'granted';
-    } catch (error) {
-      console.error('Error requesting notification permission:', error);
-      return false;
     }
+    return audioContextRef.current;
   }, []);
 
-  const playNotificationSound = useCallback(() => {
-    try {
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContext) return;
+  const requestNotificationPermission = useCallback(async () => {
+    if (!('Notification' in window)) {
+      console.log('This browser does not support desktop notifications');
+      return false;
+    }
 
-      const audioContext = new AudioContext();
+    const handleClick = async () => {
+      try {
+        initAudioContext();
+        const result = await Notification.requestPermission();
+        document.removeEventListener('click', handleClick);
+        return result === 'granted';
+      } catch (error) {
+        console.error('Error requesting notification permission:', error);
+        return false;
+      }
+    };
+
+    if (Notification.permission !== 'granted') {
+      document.addEventListener('click', handleClick, { once: true });
+    }
+
+    return Notification.permission === 'granted';
+  }, [initAudioContext]);
+
+  const playNotificationSound = useCallback(() => {
+    const audioContext = initAudioContext();
+    if (!audioContext) return;
+
+    try {
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
 
@@ -32,23 +56,21 @@ export function useNotifications(todos: Todo[]) {
       gainNode.connect(audioContext.destination);
 
       oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(660, audioContext.currentTime);
+      oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
+      
       gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.01);
-      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.2);
+      gainNode.gain.linearRampToValueAtTime(0.05, audioContext.currentTime + 0.01);
+      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.3);
 
       oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.2);
+      oscillator.stop(audioContext.currentTime + 0.3);
 
-      setTimeout(() => {
-        audioContext.close();
-      }, 1000);
     } catch (error) {
       console.error('Error playing notification sound:', error);
     }
-  }, []);
+  }, [initAudioContext]);
 
-  const showNotification = useCallback((todo: Todo, minutesUntilDue: number) => {
+  const showNotification = useCallback(async (todo: Todo, minutesUntilDue: number) => {
     const notificationId = `${todo.id}-${minutesUntilDue}`;
     
     if (sentNotifications.current.has(notificationId)) {
@@ -56,21 +78,30 @@ export function useNotifications(todos: Todo[]) {
     }
 
     try {
+      if (Notification.permission !== 'granted') {
+        await requestNotificationPermission();
+        if (Notification.permission !== 'granted') return;
+      }
+
+      if (window.navigator.userAgent.includes('Safari') && 
+          !window.navigator.userAgent.includes('Chrome')) {
+        await initAudioContext()?.resume();
+      }
+
       playNotificationSound();
 
-      const title = 'Todo Reminder';
       const options: NotificationOptions = {
         body: `Task "${todo.title}" is due in ${minutesUntilDue} minutes!${
           minutesUntilDue <= 5 ? ' ⚠️ Urgent!' : ''
         }`,
         icon: '/notification-icon.png',
         badge: '/notification-icon.png',
-        tag: `todo-${todo.id}`,
+        tag: `todo-${todo.id}-${Date.now()}`,
         requireInteraction: true,
         silent: true
       };
-      
-      const notification = new Notification(title, options);
+
+      const notification = new Notification('Todo Reminder', options);
 
       notification.onclick = () => {
         window.focus();
@@ -83,23 +114,21 @@ export function useNotifications(todos: Todo[]) {
         sentNotifications.current.delete(notificationId);
       }, 60000);
 
-      if (!notification) {
-        throw new Error('Failed to create notification');
-      }
     } catch (error) {
       console.error('Error showing notification:', error);
       alert(`Todo Reminder: Task "${todo.title}" is due in ${minutesUntilDue} minutes!`);
     }
-  }, [playNotificationSound]);
+  }, [playNotificationSound, requestNotificationPermission, initAudioContext]);
 
   useEffect(() => {
-    const initializeNotifications = async () => {
-      if (Notification.permission === 'default') {
-        await requestNotificationPermission();
+    requestNotificationPermission();
+    
+    return () => {
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
       }
     };
-
-    initializeNotifications();
   }, [requestNotificationPermission]);
 
   useEffect(() => {
@@ -122,8 +151,8 @@ export function useNotifications(todos: Todo[]) {
     };
 
     checkReminders();
-
     const interval = setInterval(checkReminders, 15000);
+    
     return () => clearInterval(interval);
   }, [todos, showNotification]);
 
