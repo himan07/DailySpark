@@ -60,10 +60,10 @@ function App() {
         <div className="px-4 py-6 sm:px-0">
           <div className="mb-8">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+              <h3 className="text-3xl font-bold text-gray-900 flex items-center gap-2" style={{fontFamily:"inherit"}}>
                 <Clock className="h-8 w-8 text-blue-600" />
                 DailySpark: Ignite your productivity with timely reminders
-              </h2>
+              </h3>
             </div>
             <TodoForm 
               onSubmit={handleCreateTodo}

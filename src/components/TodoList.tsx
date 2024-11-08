@@ -1,5 +1,4 @@
-import React from 'react';
-import { Check, Clock, AlertCircle } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { Todo } from '../types';
 
 interface TodoListProps {
@@ -74,7 +73,7 @@ export default function TodoList({ todos, onToggleComplete, onDelete }: TodoList
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {new Date(todo.dueDate).toLocaleString()}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <td className="px-6 py-4 whitespace-nowrap text-left text-sm font-medium">
                   <button
                     onClick={() => onDelete(todo.id)}
                     className="text-red-600 hover:text-red-900"
