@@ -1,8 +1,8 @@
-# Smart Todo Application
+# DailySpark: Ignite your productivity with timely reminders
 A productivity tool to help users manage tasks with reminders and priority settings.
 
 ## Live Demo
-[Visit Smart Todo](https://daily-spark-chi.vercel.app/)
+[Visit DailySpark](https://daily-spark-chi.vercel.app/)
 
 ## Features
 - **Create Tasks**: Add tasks with descriptions and priority levels.
